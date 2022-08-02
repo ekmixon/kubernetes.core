@@ -110,8 +110,7 @@ def kubectl_get_content(module, dest_dir):
         'cp',
         "{0}/{1}:{2}".format(namespace, pod, file)
     ]
-    container = module.params.get('container')
-    if container:
+    if container := module.params.get('container'):
         cmd += ['-c', container]
     local_file = os.path.join(dest_dir, os.path.basename(module.params.get('remote_path')))
     cmd.append(local_file)
@@ -131,8 +130,7 @@ def kubectl_run_from_pod(module):
         '-n',
         module.params.get('namespace')
     ]
-    container = module.params.get('container')
-    if container:
+    if container := module.params.get('container'):
         cmd += ['-c', container]
     cmd += ['--', module.params.get('remote_path')]
     cmd += module.params.get('args')
@@ -197,15 +195,17 @@ def execute_module(module):
 
 
 def main():
-    argument_spec = {}
-    argument_spec['namespace'] = {'type': 'str', 'required': True}
-    argument_spec['pod'] = {'type': 'str', 'required': True}
-    argument_spec['container'] = {}
-    argument_spec['remote_path'] = {'type': 'path', 'required': True}
-    argument_spec['local_path'] = {'type': 'path'}
-    argument_spec['content'] = {'type': 'str'}
-    argument_spec['kubectl_path'] = {'type': 'path'}
-    argument_spec['args'] = {'type': 'list'}
+    argument_spec = {
+        'namespace': {'type': 'str', 'required': True},
+        'pod': {'type': 'str', 'required': True},
+        'container': {},
+        'remote_path': {'type': 'path', 'required': True},
+        'local_path': {'type': 'path'},
+        'content': {'type': 'str'},
+        'kubectl_path': {'type': 'path'},
+        'args': {'type': 'list'},
+    }
+
     module = AnsibleModule(argument_spec=argument_spec,
                            mutually_exclusive=[('local_path', 'content')],
                            required_one_of=[['local_path', 'content']])

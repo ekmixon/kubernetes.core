@@ -172,11 +172,12 @@ def perform_action(module, k8s_ansible_mixin, resource):
         body=resource_patch,
         content_type=content_type)
 
-    result = {'changed': True}
-    result['method'] = 'patch'
-    result['body'] = resource_patch
-    result['resources'] = rollback.to_dict()
-    return result
+    return {
+        'changed': True,
+        'method': 'patch',
+        'body': resource_patch,
+        'resources': rollback.to_dict(),
+    }
 
 
 def argspec():

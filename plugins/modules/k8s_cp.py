@@ -193,7 +193,7 @@ class K8SCopyFromPod(K8SCopy):
     def __init__(self, module, client):
         super(K8SCopyFromPod, self).__init__(module, client)
         self.is_remote_path_dir = None
-        self.files_to_copy = list()
+        self.files_to_copy = []
 
     def list_remote_files(self):
         """
@@ -242,8 +242,7 @@ class K8SCopyFromPod(K8SCopy):
                         self.response._connected = False
                     elif code in (ABNF.OPCODE_BINARY, ABNF.OPCODE_TEXT) and len(frame.data) > 1:
                         channel = frame.data[0]
-                        content = frame.data[1:]
-                        if content:
+                        if content := frame.data[1:]:
                             if channel == STDOUT_CHANNEL:
                                 self.stdout = content
                             elif channel == STDERR_CHANNEL:
@@ -298,7 +297,7 @@ class K8SCopyToPod(K8SCopy):
     """
     def __init__(self, module, client):
         super(K8SCopyToPod, self).__init__(module, client)
-        self.files_to_copy = list()
+        self.files_to_copy = []
 
     def run_from_pod(self, command):
         response = stream(self.api_instance.connect_get_namespaced_pod_exec,
@@ -334,9 +333,7 @@ class K8SCopyToPod(K8SCopy):
         err = response.read_channel(ERROR_CHANNEL)
         err = yaml.safe_load(err)
         response.close()
-        if err['status'] == 'Success':
-            return True
-        return False
+        return err['status'] == 'Success'
 
     def close_temp_file(self):
         if self.named_temp_file:
@@ -385,22 +382,21 @@ class K8SCopyToPod(K8SCopy):
                 # push command in chunk mode
                 size = 1024 * 1024
                 while True:
-                    data = tar_buffer.read(size)
-                    if not data:
-                        break
-                    commands.append(data)
+                    if data := tar_buffer.read(size):
+                        commands.append(data)
 
+                    else:
+                        break
                 stderr, stdout = [], []
                 while response.is_open():
                     if response.peek_stdout():
                         stdout.append(response.read_stdout().rstrip("\n"))
                     if response.peek_stderr():
                         stderr.append(response.read_stderr().rstrip("\n"))
-                    if commands:
-                        cmd = commands.pop(0)
-                        response.write_stdin(cmd)
-                    else:
+                    if not commands:
                         break
+                    cmd = commands.pop(0)
+                    response.write_stdin(cmd)
                 response.close()
                 if stderr:
                     self.close_temp_file()

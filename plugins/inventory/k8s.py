@@ -127,14 +127,12 @@ except ImportError:
 
 
 def format_dynamic_api_exc(exc):
-    if exc.body:
-        if exc.headers and exc.headers.get('Content-Type') == 'application/json':
-            message = json.loads(exc.body).get('message')
-            if message:
-                return message
-        return exc.body
-    else:
-        return '%s Reason: %s' % (exc.status, exc.reason)
+    if not exc.body:
+        return f'{exc.status} Reason: {exc.reason}'
+    if exc.headers and exc.headers.get('Content-Type') == 'application/json':
+        if message := json.loads(exc.body).get('message'):
+            return message
+    return exc.body
 
 
 class K8sInventoryException(Exception):
@@ -207,7 +205,10 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable, K8sAnsibleM
             obj = v1_namespace.get()
         except DynamicApiError as exc:
             self.display.debug(exc)
-            raise K8sInventoryException('Error fetching Namespace list: %s' % format_dynamic_api_exc(exc))
+            raise K8sInventoryException(
+                f'Error fetching Namespace list: {format_dynamic_api_exc(exc)}'
+            )
+
         return [namespace.metadata.name for namespace in obj.items]
 
     def get_pods_for_namespace(self, client, name, namespace):
@@ -216,7 +217,10 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable, K8sAnsibleM
             obj = v1_pod.get(namespace=namespace)
         except DynamicApiError as exc:
             self.display.debug(exc)
-            raise K8sInventoryException('Error fetching Pod list: %s' % format_dynamic_api_exc(exc))
+            raise K8sInventoryException(
+                f'Error fetching Pod list: {format_dynamic_api_exc(exc)}'
+            )
+
 
         namespace_group = 'namespace_{0}'.format(namespace)
         namespace_pods_group = '{0}_pods'.format(namespace_group)
@@ -230,7 +234,10 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable, K8sAnsibleM
         for pod in obj.items:
             pod_name = pod.metadata.name
             pod_groups = []
-            pod_annotations = {} if not pod.metadata.annotations else dict(pod.metadata.annotations)
+            pod_annotations = (
+                dict(pod.metadata.annotations) if pod.metadata.annotations else {}
+            )
+
 
             if pod.metadata.labels:
                 # create a group for each label_value
@@ -292,7 +299,10 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable, K8sAnsibleM
             obj = v1_service.get(namespace=namespace)
         except DynamicApiError as exc:
             self.display.debug(exc)
-            raise K8sInventoryException('Error fetching Service list: %s' % format_dynamic_api_exc(exc))
+            raise K8sInventoryException(
+                f'Error fetching Service list: {format_dynamic_api_exc(exc)}'
+            )
+
 
         namespace_group = 'namespace_{0}'.format(namespace)
         namespace_services_group = '{0}_services'.format(namespace_group)
@@ -305,8 +315,16 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable, K8sAnsibleM
 
         for service in obj.items:
             service_name = service.metadata.name
-            service_labels = {} if not service.metadata.labels else dict(service.metadata.labels)
-            service_annotations = {} if not service.metadata.annotations else dict(service.metadata.annotations)
+            service_labels = (
+                dict(service.metadata.labels) if service.metadata.labels else {}
+            )
+
+            service_annotations = (
+                dict(service.metadata.annotations)
+                if service.metadata.annotations
+                else {}
+            )
+
 
             self.inventory.add_host(service_name)
 

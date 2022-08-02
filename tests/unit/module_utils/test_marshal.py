@@ -22,22 +22,16 @@ from ansible_collections.kubernetes.core.plugins.module_utils.hashes import mars
 
 tests = [
     dict(
-        resource=dict(
-            kind="ConfigMap",
-            name="",
-            data=dict(),
-        ),
-        expected=b'{"data":{},"kind":"ConfigMap","name":""}'
+        resource=dict(kind="ConfigMap", name="", data={}),
+        expected=b'{"data":{},"kind":"ConfigMap","name":""}',
     ),
     dict(
         resource=dict(
             kind="ConfigMap",
             name="",
-            data=dict(
-                one=""
-            ),
+            data=dict(one=""),
         ),
-        expected=b'{"data":{"one":""},"kind":"ConfigMap","name":""}'
+        expected=b'{"data":{"one":""},"kind":"ConfigMap","name":""}',
     ),
     dict(
         resource=dict(
@@ -49,27 +43,20 @@ tests = [
                 three="3",
             ),
         ),
-        expected=b'{"data":{"one":"","three":"3","two":"2"},"kind":"ConfigMap","name":""}'
+        expected=b'{"data":{"one":"","three":"3","two":"2"},"kind":"ConfigMap","name":""}',
+    ),
+    dict(
+        resource=dict(kind="Secret", type="my-type", name="", data={}),
+        expected=b'{"data":{},"kind":"Secret","name":"","type":"my-type"}',
     ),
     dict(
         resource=dict(
             kind="Secret",
             type="my-type",
             name="",
-            data=dict(),
+            data=dict(one=""),
         ),
-        expected=b'{"data":{},"kind":"Secret","name":"","type":"my-type"}'
-    ),
-    dict(
-        resource=dict(
-            kind="Secret",
-            type="my-type",
-            name="",
-            data=dict(
-                one=""
-            ),
-        ),
-        expected=b'{"data":{"one":""},"kind":"Secret","name":"","type":"my-type"}'
+        expected=b'{"data":{"one":""},"kind":"Secret","name":"","type":"my-type"}',
     ),
     dict(
         resource=dict(
@@ -82,7 +69,7 @@ tests = [
                 three="Mw==",
             ),
         ),
-        expected=b'{"data":{"one":"","three":"Mw==","two":"Mg=="},"kind":"Secret","name":"","type":"my-type"}'
+        expected=b'{"data":{"one":"","three":"Mw==","two":"Mg=="},"kind":"Secret","name":"","type":"my-type"}',
     ),
 ]
 

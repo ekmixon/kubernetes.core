@@ -159,8 +159,9 @@ from ansible_collections.kubernetes.core.plugins.module_utils.args_common import
 
 
 def execute_module(module, client):
-    invalidate_cache = boolean(module.params.get('invalidate_cache', True), strict=False)
-    if invalidate_cache:
+    if invalidate_cache := boolean(
+        module.params.get('invalidate_cache', True), strict=False
+    ):
         client.resources.invalidate_cache()
     results = defaultdict(dict)
     for resource in list(client.resources):
@@ -169,13 +170,14 @@ def execute_module(module, client):
             continue
         key = resource.group_version if resource.group == '' else '/'.join([resource.group, resource.group_version.split('/')[-1]])
         results[key][resource.kind] = {
-            'categories': resource.categories if resource.categories else [],
+            'categories': resource.categories or [],
             'name': resource.name,
             'namespaced': resource.namespaced,
             'preferred': resource.preferred,
-            'short_names': resource.short_names if resource.short_names else [],
+            'short_names': resource.short_names or [],
             'singular_name': resource.singular_name,
         }
+
     configuration = client.configuration
     connection = {
         'cert_file': configuration.cert_file,

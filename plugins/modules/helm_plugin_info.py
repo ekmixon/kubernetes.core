@@ -103,11 +103,7 @@ def main():
 
     bin_path = module.params.get('binary_path')
 
-    if bin_path is not None:
-        helm_cmd_common = bin_path
-    else:
-        helm_cmd_common = 'helm'
-
+    helm_cmd_common = bin_path if bin_path is not None else 'helm'
     helm_cmd_common = module.get_bin_path(helm_cmd_common, required=True)
 
     helm_cmd_common += " plugin"
@@ -143,7 +139,7 @@ def main():
 
     module.exit_json(
         changed=True,
-        command=helm_cmd_common + " list",
+        command=f"{helm_cmd_common} list",
         stdout=output,
         stderr=err,
         rc=rc,

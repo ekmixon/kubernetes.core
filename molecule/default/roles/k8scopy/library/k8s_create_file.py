@@ -78,10 +78,12 @@ def execute_module(module):
 
 
 def main():
-    argument_spec = {}
-    argument_spec['size'] = {'type': 'int', 'default': 400}
-    argument_spec['path'] = {'type': 'path', 'required': True}
-    argument_spec['binary'] = {'type': 'bool', 'default': False}
+    argument_spec = {
+        'size': {'type': 'int', 'default': 400},
+        'path': {'type': 'path', 'required': True},
+        'binary': {'type': 'bool', 'default': False},
+    }
+
     module = AnsibleModule(argument_spec=argument_spec)
 
     execute_module(module)

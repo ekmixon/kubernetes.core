@@ -221,7 +221,7 @@ def execute_module(k8s_module, module):
     }
 
     def build_error_msg(kind, name, msg):
-        return "%s %s: %s" % (kind, name, msg)
+        return f"{kind} {name}: {msg}"
 
     resource = k8s_module.find_resource(kind, api_version, fail=True)
 

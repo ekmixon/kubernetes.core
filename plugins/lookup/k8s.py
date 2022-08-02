@@ -243,8 +243,7 @@ class KubernetesLookup(K8sAnsibleMixin):
         self.include_uninitialized = kwargs.get('include_uninitialized', False)
 
         resource_definition = kwargs.get('resource_definition')
-        src = kwargs.get('src')
-        if src:
+        if src := kwargs.get('src'):
             resource_definition = self.load_resource_definitions(src)[0]
         if resource_definition:
             self.kind = resource_definition.get('kind', self.kind)
@@ -264,10 +263,7 @@ class KubernetesLookup(K8sAnsibleMixin):
         except NotFoundError:
             return []
 
-        if self.name:
-            return [k8s_obj.to_dict()]
-
-        return k8s_obj.to_dict().get('items')
+        return [k8s_obj.to_dict()] if self.name else k8s_obj.to_dict().get('items')
 
 
 class LookupModule(LookupBase):

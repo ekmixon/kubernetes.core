@@ -130,11 +130,12 @@ def argspec():
     args.update(
         dict(
             kind=dict(type='str', default='Pod'),
-            container=dict(),
-            since_seconds=dict(),
+            container={},
+            since_seconds={},
             label_selectors=dict(type='list', elements='str', default=[]),
         )
     )
+
     return args
 
 
@@ -188,15 +189,23 @@ def extract_selectors(module, instance):
         module.fail(msg='{0} {1} does not support the log subresource directly, and no Pod selector was found on the object'.format(
                     '/'.join(instance.group, instance.apiVersion), instance.kind))
 
-    if not (instance.spec.selector.matchLabels or instance.spec.selector.matchExpressions):
+    if (
+        not instance.spec.selector.matchLabels
+        and not instance.spec.selector.matchExpressions
+    ):
         # A few resources (like DeploymentConfigs) just use a simple key:value style instead of supporting expressions
-        for k, v in dict(instance.spec.selector).items():
-            selectors.append('{0}={1}'.format(k, v))
+        selectors.extend(
+            '{0}={1}'.format(k, v)
+            for k, v in dict(instance.spec.selector).items()
+        )
+
         return selectors
 
     if instance.spec.selector.matchLabels:
-        for k, v in dict(instance.spec.selector.matchLabels).items():
-            selectors.append('{0}={1}'.format(k, v))
+        selectors.extend(
+            '{0}={1}'.format(k, v)
+            for k, v in dict(instance.spec.selector.matchLabels).items()
+        )
 
     if instance.spec.selector.matchExpressions:
         for expression in instance.spec.selector.matchExpressions:
@@ -219,9 +228,7 @@ def extract_selectors(module, instance):
 
 
 def serialize_log(response):
-    if PY2:
-        return response.data
-    return response.data.decode('utf8')
+    return response.data if PY2 else response.data.decode('utf8')
 
 
 def main():

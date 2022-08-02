@@ -22,11 +22,7 @@ from ansible_collections.kubernetes.core.plugins.module_utils.hashes import gene
 
 tests = [
     dict(
-        resource=dict(
-            kind="ConfigMap",
-            metadata=dict(name="foo"),
-            data=dict()
-        ),
+        resource=dict(kind="ConfigMap", metadata=dict(name="foo"), data={}),
         expected="867km9574f",
     ),
     dict(
@@ -34,7 +30,7 @@ tests = [
             kind="ConfigMap",
             metadata=dict(name="foo"),
             type="my-type",
-            data=dict()
+            data={},
         ),
         expected="867km9574f",
     ),
@@ -42,41 +38,28 @@ tests = [
         resource=dict(
             kind="ConfigMap",
             metadata=dict(name="foo"),
-            data=dict(
-                key1="value1",
-                key2="value2")
+            data=dict(key1="value1", key2="value2"),
         ),
         expected="gcb75dd9gb",
     ),
     dict(
-        resource=dict(
-            kind="Secret",
-            metadata=dict(name="foo"),
-            data=dict()
-        ),
+        resource=dict(kind="Secret", metadata=dict(name="foo"), data={}),
         expected="949tdgdkgg",
     ),
     dict(
         resource=dict(
-            kind="Secret",
-            metadata=dict(name="foo"),
-            type="my-type",
-            data=dict()
+            kind="Secret", metadata=dict(name="foo"), type="my-type", data={}
         ),
         expected="dg474f9t76",
     ),
-
     dict(
         resource=dict(
             kind="Secret",
             metadata=dict(name="foo"),
-            data=dict(
-                key1="dmFsdWUx",
-                key2="dmFsdWUy")
+            data=dict(key1="dmFsdWUx", key2="dmFsdWUy"),
         ),
         expected="tf72c228m4",
-    )
-
+    ),
 ]
 
 

@@ -181,9 +181,9 @@ def execute_module(module, k8s_ansible_mixin,):
     wait_sleep = module.params.get('wait_sleep')
     existing = None
     existing_count = None
-    return_attributes = dict(result=dict())
+    return_attributes = dict(result={})
     if module._diff:
-        return_attributes['diff'] = dict()
+        return_attributes['diff'] = {}
     if wait:
         return_attributes['duration'] = 0
 
@@ -303,9 +303,7 @@ def scale(module, k8s_ansible_mixin, resource, existing_object, replicas, wait, 
 
     k8s_obj = resource.get(name=name, namespace=namespace).to_dict()
     match, diffs = k8s_ansible_mixin.diff_objects(existing.to_dict(), k8s_obj)
-    result = dict()
-    result['result'] = k8s_obj
-    result['changed'] = not match
+    result = {'result': k8s_obj, 'changed': not match}
     if module._diff:
         result['diff'] = diffs
 

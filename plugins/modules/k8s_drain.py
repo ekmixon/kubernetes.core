@@ -152,20 +152,18 @@ def filter_pods(pods, force, ignore_daemonset):
             localStorage.append((pod.metadata.namespace, pod.metadata.name))
             continue
 
-        # Check replicated Pod
-        owner_ref = pod.metadata.owner_references
-        if not owner_ref:
-            unmanaged.append((pod.metadata.namespace, pod.metadata.name))
-        else:
+        if owner_ref := pod.metadata.owner_references:
             for owner in owner_ref:
                 if owner.kind == "DaemonSet":
                     daemonSet.append((pod.metadata.namespace, pod.metadata.name))
                 else:
                     to_delete.append((pod.metadata.namespace, pod.metadata.name))
 
+        else:
+            unmanaged.append((pod.metadata.namespace, pod.metadata.name))
     warnings, errors = [], []
     if unmanaged:
-        pod_names = ','.join([pod[0] + "/" + pod[1] for pod in unmanaged])
+        pod_names = ','.join([f"{pod[0]}/{pod[1]}" for pod in unmanaged])
         if not force:
             errors.append("cannot delete Pods not managed by ReplicationController, ReplicaSet, Job,"
                           " DaemonSet or StatefulSet (use option force set to yes): {0}.".format(pod_names))
@@ -176,7 +174,7 @@ def filter_pods(pods, force, ignore_daemonset):
 
     # mirror pods warning
     if mirror:
-        pod_names = ','.join([pod[0] + "/" + pod[1] for pod in mirror])
+        pod_names = ','.join([f"{pod[0]}/{pod[1]}" for pod in mirror])
         warnings.append("cannot delete mirror Pods using API server: {0}.".format(pod_names))
 
     # local storage
@@ -185,7 +183,7 @@ def filter_pods(pods, force, ignore_daemonset):
 
     # DaemonSet managed Pods
     if daemonSet:
-        pod_names = ','.join([pod[0] + "/" + pod[1] for pod in daemonSet])
+        pod_names = ','.join([f"{pod[0]}/{pod[1]}" for pod in daemonSet])
         if not ignore_daemonset:
             errors.append("cannot delete DaemonSet-managed Pods (use option ignore_daemonset set to yes): {0}.".format(pod_names))
         else:
@@ -220,10 +218,11 @@ class K8sDrainAnsible(object):
         self._drain_options = module.params.get('delete_options', {})
         self._delete_options = None
         if self._drain_options.get('terminate_grace_period'):
-            self._delete_options = {}
-            self._delete_options.update({'apiVersion': 'v1'})
-            self._delete_options.update({'kind': 'DeleteOptions'})
-            self._delete_options.update({'gracePeriodSeconds': self._drain_options.get('terminate_grace_period')})
+            self._delete_options = {'apiVersion': 'v1', 'kind': 'DeleteOptions'}
+            self._delete_options['gracePeriodSeconds'] = self._drain_options.get(
+                'terminate_grace_period'
+            )
+
 
         self._changed = False
 
@@ -249,9 +248,7 @@ class K8sDrainAnsible(object):
                 pod = None
             except Exception as e:
                 self._module.fail_json(msg="Exception raised: {0}".format(to_native(e)))
-        if not pods:
-            return None
-        return "timeout reached while pods were still running."
+        return "timeout reached while pods were still running." if pods else None
 
     def evict_pods(self, pods):
         for namespace, name in pods:
@@ -262,7 +259,7 @@ class K8sDrainAnsible(object):
                 }
             }
             if self._delete_options:
-                definition.update({'delete_options': self._delete_options})
+                definition['delete_options'] = self._delete_options
             try:
                 if self._drain_options.get('disable_eviction'):
                     body = V1DeleteOptions(**definition)
@@ -370,7 +367,7 @@ class K8sDrainAnsible(object):
             # drain node
             # Delete or Evict Pods
             ret = self.delete_or_evict_pods(node_unschedulable=node.spec.unschedulable)
-            result.update(ret)
+            result |= ret
 
         self._module.exit_json(changed=self._changed, **result)
 

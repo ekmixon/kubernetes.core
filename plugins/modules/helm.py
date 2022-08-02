@@ -330,7 +330,7 @@ def get_release_status(module, command, release_name):
     Get Release state from deployed release
     """
 
-    list_command = command + " list --output=yaml --filter " + release_name
+    list_command = f"{command} list --output=yaml --filter {release_name}"
 
     rc, out, err = run_helm(module, list_command)
 
@@ -348,7 +348,7 @@ def run_repo_update(module, command):
     """
     Run Repo update
     """
-    repo_update_command = command + " repo update"
+    repo_update_command = f"{command} repo update"
     rc, out, err = run_helm(module, repo_update_command)
 
 
@@ -356,7 +356,7 @@ def fetch_chart_info(module, command, chart_ref):
     """
     Get chart info
     """
-    inspect_command = command + " show chart " + chart_ref
+    inspect_command = f"{command} show chart {chart_ref}"
 
     rc, out, err = run_helm(module, inspect_command)
 
@@ -371,9 +371,9 @@ def deploy(command, release_name, release_values, chart_name, wait,
     """
     if replace:
         # '--replace' is not supported by 'upgrade -i'
-        deploy_command = command + " install"
+        deploy_command = f"{command} install"
     else:
-        deploy_command = command + " upgrade -i"  # install/upgrade
+        deploy_command = f"{command} upgrade -i"
 
         # Always reset values to keep release_values equal to values released
         deploy_command += " --reset-values"
@@ -381,7 +381,7 @@ def deploy(command, release_name, release_values, chart_name, wait,
     if wait:
         deploy_command += " --wait"
         if wait_timeout is not None:
-            deploy_command += " --timeout " + wait_timeout
+            deploy_command += f" --timeout {wait_timeout}"
 
     if atomic:
         deploy_command += " --atomic"
@@ -400,21 +400,21 @@ def deploy(command, release_name, release_values, chart_name, wait,
 
     if values_files:
         for value_file in values_files:
-            deploy_command += " --values=" + value_file
+            deploy_command += f" --values={value_file}"
 
     if release_values != {}:
         fd, path = tempfile.mkstemp(suffix='.yml')
         with open(path, 'w') as yaml_file:
             yaml.dump(release_values, yaml_file, default_flow_style=False)
-        deploy_command += " -f=" + path
+        deploy_command += f" -f={path}"
 
     if skip_crds:
         deploy_command += " --skip-crds"
 
     if history_max is not None:
-        deploy_command += " --history-max=%s" % str(history_max)
+        deploy_command += f" --history-max={str(history_max)}"
 
-    deploy_command += " " + release_name + " " + chart_name
+    deploy_command += f" {release_name} {chart_name}"
     return deploy_command
 
 
@@ -423,7 +423,7 @@ def delete(command, release_name, purge, disable_hook):
     Delete release chart
     """
 
-    delete_command = command + " uninstall "
+    delete_command = f"{command} uninstall "
 
     if not purge:
         delete_command += " --keep-history"
@@ -431,7 +431,7 @@ def delete(command, release_name, purge, disable_hook):
     if disable_hook:
         delete_command += " --no-hooks"
 
-    delete_command += " " + release_name
+    delete_command += f" {release_name}"
 
     return delete_command
 
@@ -453,17 +453,11 @@ def has_plugin(command, plugin):
     Check if helm plugin is installed.
     """
 
-    cmd = command + " plugin"
+    cmd = f"{command} plugin"
     rc, output, err = get_helm_plugin_list(module, helm_bin=cmd)
     out = parse_helm_plugin_list(module, output=output.splitlines())
 
-    if not out:
-        return False
-
-    for line in out:
-        if line[0] == plugin:
-            return True
-    return False
+    return any(line[0] == plugin for line in out) if out else False
 
 
 def helmdiff_check(module, helm_cmd, release_name, chart_ref, release_values,
@@ -471,9 +465,9 @@ def helmdiff_check(module, helm_cmd, release_name, chart_ref, release_values,
     """
     Use helm diff to determine if a release would change by upgrading a chart.
     """
-    cmd = helm_cmd + " diff upgrade"
-    cmd += " " + release_name
-    cmd += " " + chart_ref
+    cmd = f"{helm_cmd} diff upgrade"
+    cmd += f" {release_name}"
+    cmd += f" {chart_ref}"
 
     if chart_version is not None:
         cmd += " " + "--version=" + chart_version
@@ -484,11 +478,11 @@ def helmdiff_check(module, helm_cmd, release_name, chart_ref, release_values,
         fd, path = tempfile.mkstemp(suffix='.yml')
         with open(path, 'w') as yaml_file:
             yaml.dump(release_values, yaml_file, default_flow_style=False)
-        cmd += " -f=" + path
+        cmd += f" -f={path}"
 
     if values_files:
         for values_file in values_files:
-            cmd += " -f=" + values_file
+            cmd += f" -f={values_file}"
 
     rc, out, err = run_helm(module, cmd)
     return len(out.strip()) > 0
@@ -610,10 +604,10 @@ def main():
     elif release_state == "present":
 
         if chart_version is not None:
-            helm_cmd += " --version=" + chart_version
+            helm_cmd += f" --version={chart_version}"
 
         if chart_repo_url is not None:
-            helm_cmd += " --repo=" + chart_repo_url
+            helm_cmd += f" --repo={chart_repo_url}"
 
         # Fetch chart info to have real version and real name for chart_ref from archive, folder or url
         chart_info = fetch_chart_info(module, helm_cmd, chart_ref)

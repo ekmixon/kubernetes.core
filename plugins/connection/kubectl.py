@@ -284,7 +284,7 @@ class Connection(ConnectionBase):
 
         local_cmd, censored_local_cmd = self._build_exec_cmd([self._play_context.executable, '-c', cmd])
 
-        display.vvv("EXEC %s" % (censored_local_cmd,), host=self._play_context.remote_addr)
+        display.vvv(f"EXEC {censored_local_cmd}", host=self._play_context.remote_addr)
         local_cmd = [to_bytes(i, errors='surrogate_or_strict') for i in local_cmd]
         p = subprocess.Popen(local_cmd, shell=False, stdin=subprocess.PIPE,
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -309,22 +309,28 @@ class Connection(ConnectionBase):
     def put_file(self, in_path, out_path):
         """ Transfer a file from local to the container """
         super(Connection, self).put_file(in_path, out_path)
-        display.vvv("PUT %s TO %s" % (in_path, out_path), host=self._play_context.remote_addr)
+        display.vvv(
+            f"PUT {in_path} TO {out_path}", host=self._play_context.remote_addr
+        )
+
 
         out_path = self._prefix_login_path(out_path)
         if not os.path.exists(to_bytes(in_path, errors='surrogate_or_strict')):
-            raise AnsibleFileNotFound(
-                "file or module does not exist: %s" % in_path)
+            raise AnsibleFileNotFound(f"file or module does not exist: {in_path}")
 
         out_path = shlex_quote(out_path)
         # kubectl doesn't have native support for copying files into
         # running containers, so we use kubectl exec to implement this
         with open(to_bytes(in_path, errors='surrogate_or_strict'), 'rb') as in_file:
-            if not os.fstat(in_file.fileno()).st_size:
-                count = ' count=0'
-            else:
-                count = ''
-            args, dummy = self._build_exec_cmd([self._play_context.executable, "-c", "dd of=%s bs=%s%s" % (out_path, BUFSIZE, count)])
+            count = '' if os.fstat(in_file.fileno()).st_size else ' count=0'
+            args, dummy = self._build_exec_cmd(
+                [
+                    self._play_context.executable,
+                    "-c",
+                    f"dd of={out_path} bs={BUFSIZE}{count}",
+                ]
+            )
+
             args = [to_bytes(i, errors='surrogate_or_strict') for i in args]
             try:
                 p = subprocess.Popen(args, stdin=in_file,
@@ -339,14 +345,20 @@ class Connection(ConnectionBase):
     def fetch_file(self, in_path, out_path):
         """ Fetch a file from container to local. """
         super(Connection, self).fetch_file(in_path, out_path)
-        display.vvv("FETCH %s TO %s" % (in_path, out_path), host=self._play_context.remote_addr)
+        display.vvv(
+            f"FETCH {in_path} TO {out_path}", host=self._play_context.remote_addr
+        )
+
 
         in_path = self._prefix_login_path(in_path)
         out_dir = os.path.dirname(out_path)
 
         # kubectl doesn't have native support for fetching files from
         # running containers, so we use kubectl exec to implement this
-        args, dummy = self._build_exec_cmd([self._play_context.executable, "-c", "dd if=%s bs=%s" % (in_path, BUFSIZE)])
+        args, dummy = self._build_exec_cmd(
+            [self._play_context.executable, "-c", f"dd if={in_path} bs={BUFSIZE}"]
+        )
+
         args = [to_bytes(i, errors='surrogate_or_strict') for i in args]
         actual_out_path = os.path.join(out_dir, os.path.basename(in_path))
         with open(to_bytes(actual_out_path, errors='surrogate_or_strict'), 'wb') as out_file:

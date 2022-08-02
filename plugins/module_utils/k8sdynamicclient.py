@@ -26,7 +26,7 @@ from ansible_collections.kubernetes.core.plugins.module_utils.exceptions import 
 class K8SDynamicClient(DynamicClient):
     def apply(self, resource, body=None, name=None, namespace=None):
         body = super().serialize_body(body)
-        body['metadata'] = body.get('metadata', dict())
+        body['metadata'] = body.get('metadata', {})
         name = name or body['metadata'].get('name')
         if not name:
             raise ValueError("name is required to apply {0}.{1}".format(resource.group_version, resource.kind))
@@ -35,5 +35,6 @@ class K8SDynamicClient(DynamicClient):
         try:
             return k8s_apply(resource, body)
         except ApplyException as e:
-            raise ValueError("Could not apply strategic merge to %s/%s: %s" %
-                             (body['kind'], body['metadata']['name'], e))
+            raise ValueError(
+                f"Could not apply strategic merge to {body['kind']}/{body['metadata']['name']}: {e}"
+            )

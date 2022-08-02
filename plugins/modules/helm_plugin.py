@@ -131,21 +131,18 @@ def main():
     bin_path = module.params.get('binary_path')
     state = module.params.get('state')
 
-    if bin_path is not None:
-        helm_cmd_common = bin_path
-    else:
-        helm_cmd_common = 'helm'
-
+    helm_cmd_common = bin_path if bin_path is not None else 'helm'
     helm_cmd_common = module.get_bin_path(helm_cmd_common, required=True)
 
     helm_cmd_common += " plugin"
 
     if state == 'present':
-        helm_cmd_common += " install %s" % module.params.get('plugin_path')
-        if not module.check_mode:
-            rc, out, err = run_helm(module, helm_cmd_common, fails_on_error=False)
-        else:
-            rc, out, err = (0, '', '')
+        helm_cmd_common += f" install {module.params.get('plugin_path')}"
+        rc, out, err = (
+            (0, '', '')
+            if module.check_mode
+            else run_helm(module, helm_cmd_common, fails_on_error=False)
+        )
 
         if rc == 1 and 'plugin already exists' in err:
             module.exit_json(
@@ -185,33 +182,32 @@ def main():
                 failed=False,
                 changed=False,
                 msg="Plugin not found or is already uninstalled",
-                command=helm_cmd_common + " list",
+                command=f"{helm_cmd_common} list",
                 stdout=output,
                 stderr=err,
-                rc=rc
+                rc=rc,
             )
 
-        found = False
-        for line in out:
-            if line[0] == plugin_name:
-                found = True
-                break
+
+        found = any(line[0] == plugin_name for line in out)
         if not found:
             module.exit_json(
                 failed=False,
                 changed=False,
                 msg="Plugin not found or is already uninstalled",
-                command=helm_cmd_common + " list",
+                command=f"{helm_cmd_common} list",
                 stdout=output,
                 stderr=err,
-                rc=rc
+                rc=rc,
             )
 
-        helm_uninstall_cmd = "%s uninstall %s" % (helm_cmd_common, plugin_name)
-        if not module.check_mode:
-            rc, out, err = run_helm(module, helm_uninstall_cmd, fails_on_error=False)
-        else:
-            rc, out, err = (0, '', '')
+
+        helm_uninstall_cmd = f"{helm_cmd_common} uninstall {plugin_name}"
+        rc, out, err = (
+            (0, '', '')
+            if module.check_mode
+            else run_helm(module, helm_uninstall_cmd, fails_on_error=False)
+        )
 
         if rc == 0:
             module.exit_json(

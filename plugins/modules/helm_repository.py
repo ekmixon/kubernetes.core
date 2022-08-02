@@ -135,7 +135,7 @@ def get_repository(state, repo_name):
 
 # Get repository status
 def get_repository_status(module, command, repository_name):
-    list_command = command + " repo list --output=yaml"
+    list_command = f"{command} repo list --output=yaml"
 
     rc, out, err = run_helm(module, list_command, fails_on_error=False)
 
@@ -153,20 +153,18 @@ def get_repository_status(module, command, repository_name):
 
 # Install repository
 def install_repository(command, repository_name, repository_url, repository_username, repository_password):
-    install_command = command + " repo add " + repository_name + " " + repository_url
+    install_command = f"{command} repo add {repository_name} {repository_url}"
 
     if repository_username is not None and repository_password is not None:
-        install_command += " --username=" + repository_username
-        install_command += " --password=" + repository_password
+        install_command += f" --username={repository_username}"
+        install_command += f" --password={repository_password}"
 
     return install_command
 
 
 # Delete repository
 def delete_repository(command, repository_name):
-    remove_command = command + " repo rm " + repository_name
-
-    return remove_command
+    return f"{command} repo rm {repository_name}"
 
 
 def main():

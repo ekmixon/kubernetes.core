@@ -132,26 +132,26 @@ from ansible_collections.kubernetes.core.plugins.module_utils.helm import run_he
 
 def template(cmd, chart_ref, chart_repo_url=None, chart_version=None, output_dir=None,
              release_values=None, values_files=None, include_crds=False):
-    cmd += " template " + chart_ref
+    cmd += f" template {chart_ref}"
 
     if chart_repo_url:
-        cmd += " --repo=" + chart_repo_url
+        cmd += f" --repo={chart_repo_url}"
 
     if chart_version:
-        cmd += " --version=" + chart_version
+        cmd += f" --version={chart_version}"
 
     if output_dir:
-        cmd += " --output-dir=" + output_dir
+        cmd += f" --output-dir={output_dir}"
 
     if release_values:
         fd, path = tempfile.mkstemp(suffix='.yml')
         with open(path, 'w') as yaml_file:
             yaml.dump(release_values, yaml_file, default_flow_style=False)
-        cmd += " -f=" + path
+        cmd += f" -f={path}"
 
     if values_files:
         for values_file in values_files:
-            cmd += " -f=" + values_file
+            cmd += f" -f={values_file}"
 
     if include_crds:
         cmd += " --include-crds"
@@ -192,7 +192,7 @@ def main():
     helm_cmd = bin_path or module.get_bin_path('helm', required=True)
 
     if update_repo_cache:
-        update_cmd = helm_cmd + " repo update"
+        update_cmd = f"{helm_cmd} repo update"
         run_helm(module, update_cmd)
 
     tmpl_cmd = template(helm_cmd, chart_ref, chart_repo_url=chart_repo_url,

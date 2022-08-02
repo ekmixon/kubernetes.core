@@ -23,7 +23,7 @@ skip_list = [
 for version in ["2.9", "2.10", "2.11", "2.12"]:
     ignore_file = ignore_dir / f"ignore-{version}.txt"
     ignore_content = ignore_file.read_text().split("\n")
-    ignore_content.append(f"tests/sanity/refresh_ignore_files shebang!skip")
+    ignore_content.append("tests/sanity/refresh_ignore_files shebang!skip")
 
     for f in module_dir.glob("*.py"):
         if f.is_symlink():

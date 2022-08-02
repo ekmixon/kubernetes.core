@@ -101,18 +101,14 @@ except ImportError as e:
 def configuration_digest(configuration):
     m = hashlib.sha256()
     for k in AUTH_ARG_MAP:
-        if not hasattr(configuration, k):
-            v = None
-        else:
-            v = getattr(configuration, k)
+        v = getattr(configuration, k) if hasattr(configuration, k) else None
         if v and k in ["ssl_ca_cert", "cert_file", "key_file"]:
             with open(str(v), "r") as fd:
                 content = fd.read()
                 m.update(content.encode())
         else:
             m.update(str(v).encode())
-    digest = m.hexdigest()
-    return digest
+    return m.hexdigest()
 
 
 def get_api_client(module=None, **kwargs):
@@ -323,7 +319,7 @@ class K8sAnsibleMixin(object):
         return result
 
     def diff_objects(self, existing, new):
-        result = dict()
+        result = {}
         diff = recursive_diff(existing, new)
         if not diff:
             return True, result
@@ -332,7 +328,7 @@ class K8sAnsibleMixin(object):
         result['after'] = diff[1]
 
         # If only metadata.generation and metadata.resourceVersion changed, ignore it
-        ignored_keys = set(['generation', 'resourceVersion'])
+        ignored_keys = {'generation', 'resourceVersion'}
 
         if list(result['after'].keys()) != ['metadata'] or list(result['before'].keys()) != ['metadata']:
             return False, result
@@ -424,11 +420,9 @@ class K8sAnsibleMixin(object):
                     if condition['reason']:
                         return match.reason == condition['reason']
                 return False
-            status = True if match.status == 'True' else False
+            status = match.status == 'True'
             if status == boolean(condition['status'], strict=False):
-                if condition.get('reason'):
-                    return match.reason == condition['reason']
-                return True
+                return match.reason == condition['reason'] if condition.get('reason') else True
             return False
 
         def _resource_absent(resource):
@@ -442,7 +436,7 @@ class K8sAnsibleMixin(object):
         )
         kind = definition['kind']
         if state == 'present':
-            predicate = waiter.get(kind, lambda x: x) if not condition else _custom_condition
+            predicate = _custom_condition if condition else waiter.get(kind, lambda x: x)
         else:
             predicate = _resource_absent
         name = definition['metadata']['name']
@@ -549,7 +543,7 @@ class K8sAnsibleMixin(object):
 
     def validate(self, resource):
         def _prepend_resource_info(resource, msg):
-            return "%s %s: %s" % (resource['kind'], resource['metadata']['name'], msg)
+            return f"{resource['kind']} {resource['metadata']['name']}: {msg}"
 
         try:
             warnings, errors = self.client.validate(resource, self.params['validate'].get('version'), self.params['validate'].get('strict'))

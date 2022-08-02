@@ -66,12 +66,13 @@ WAIT_ARG_SPEC = dict(
         type='dict',
         default=None,
         options=dict(
-            type=dict(),
+            type={},
             status=dict(default=True, choices=[True, False, "Unknown"]),
-            reason=dict()
-        )
-    )
+            reason={},
+        ),
+    ),
 )
+
 
 # Map kubernetes-client parameters to ansible parameters
 AUTH_ARG_MAP = {

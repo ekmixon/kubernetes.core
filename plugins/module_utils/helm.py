@@ -75,13 +75,11 @@ def get_values(module, command, release_name):
     if not HAS_YAML:
         module.fail_json(msg=missing_required_lib("PyYAML"), exception=YAML_IMP_ERR)
 
-    get_command = command + " get values --output=yaml " + release_name
+    get_command = f"{command} get values --output=yaml {release_name}"
 
     rc, out, err = run_helm(module, get_command)
     # Helm 3 return "null" string when no values are set
-    if out.rstrip("\n") == "null":
-        return {}
-    return yaml.safe_load(out)
+    return {} if out.rstrip("\n") == "null" else yaml.safe_load(out)
 
 
 def write_temp_kubeconfig(server, validate_certs=True, ca_cert=None):
@@ -125,7 +123,7 @@ def get_helm_plugin_list(module, helm_bin=None):
     """
     if not helm_bin:
         return []
-    helm_plugin_list = helm_bin + " list"
+    helm_plugin_list = f"{helm_bin} list"
     rc, out, err = run_helm(module, helm_plugin_list)
     if rc != 0 or (out == '' and err == ''):
         module.fail_json(

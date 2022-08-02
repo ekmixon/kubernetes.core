@@ -36,8 +36,7 @@ class Discoverer(kubernetes.dynamic.discovery.Discoverer):
         self.__init_cache()
 
     def __get_default_cache_id(self):
-        user = self.__get_user()
-        if user:
+        if user := self.__get_user():
             cache_id = "{0}-{1}".format(self.client.configuration.host, user)
         else:
             cache_id = self.client.configuration.host
@@ -50,22 +49,17 @@ class Discoverer(kubernetes.dynamic.discovery.Discoverer):
         # place.
         if hasattr(os, 'getlogin'):
             try:
-                user = os.getlogin()
-                if user:
+                if user := os.getlogin():
                     return str(user)
             except OSError:
                 pass
         if hasattr(os, 'getuid'):
             try:
-                user = os.getuid()
-                if user:
+                if user := os.getuid():
                     return str(user)
             except OSError:
                 pass
-        user = os.environ.get("USERNAME")
-        if user:
-            return str(user)
-        return None
+        return str(user) if (user := os.environ.get("USERNAME")) else None
 
     def __init_cache(self, refresh=False):
         if refresh or not os.path.exists(self.__cache_file):
@@ -146,9 +140,12 @@ class Discoverer(kubernetes.dynamic.discovery.Discoverer):
         if len(results) > 1 and not all(isinstance(x, ResourceList) for x in results):
             results = [result for result in results if not isinstance(result, ResourceList)]
         # if multiple resources are found that share a GVK, prefer the one with the most supported verbs
-        if len(results) > 1 and len(set((x.group_version, x.kind) for x in results)) == 1:
-            if len(set(len(x.verbs) for x in results)) != 1:
-                results = [max(results, key=lambda x: len(x.verbs))]
+        if (
+            len(results) > 1
+            and len({(x.group_version, x.kind) for x in results}) == 1
+            and len({len(x.verbs) for x in results}) != 1
+        ):
+            results = [max(results, key=lambda x: len(x.verbs))]
         if len(results) == 1:
             return results[0]
         elif not results:

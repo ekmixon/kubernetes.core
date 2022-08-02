@@ -175,12 +175,13 @@ def argspec():
         dict(
             kind=dict(required=True),
             api_version=dict(default='v1', aliases=['api', 'version']),
-            name=dict(),
-            namespace=dict(),
+            name={},
+            namespace={},
             label_selectors=dict(type='list', elements='str', default=[]),
             field_selectors=dict(type='list', elements='str', default=[]),
         )
     )
+
     return args
 
 

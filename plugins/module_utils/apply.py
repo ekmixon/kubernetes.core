@@ -59,20 +59,16 @@ POD_SPEC_PREFIXES = [
     'Cronjob.spec.jobTemplate.spec.template.spec',
 ]
 
-# patch merge keys taken from generated.proto files under
-# staging/src/k8s.io/api in kubernetes/kubernetes
 STRATEGIC_MERGE_PATCH_KEYS = {
     'Service.spec.ports': 'port',
     'ServiceAccount.secrets': 'name',
     'ValidatingWebhookConfiguration.webhooks': 'name',
     'MutatingWebhookConfiguration.webhooks': 'name',
+} | {
+    f"{prefix}.{key}": value
+    for prefix in POD_SPEC_PREFIXES
+    for key, value in POD_SPEC_SUFFIXES.items()
 }
-
-STRATEGIC_MERGE_PATCH_KEYS.update(
-    {"%s.%s" % (prefix, key): value
-     for prefix in POD_SPEC_PREFIXES
-     for key, value in POD_SPEC_SUFFIXES.items()}
-)
 
 
 def annotate(desired):
@@ -86,20 +82,26 @@ def annotate(desired):
 
 
 def apply_patch(actual, desired):
-    last_applied = actual['metadata'].get('annotations', {}).get(LAST_APPLIED_CONFIG_ANNOTATION)
-
-    if last_applied:
-        # ensure that last_applied doesn't come back as a dict of unicode key/value pairs
-        # json.loads can be used if we stop supporting python 2
-        last_applied = json.loads(last_applied)
-        patch = merge(dict_merge(last_applied, annotate(last_applied)),
-                      dict_merge(desired, annotate(desired)), actual)
-        if patch:
-            return actual, patch
-        else:
-            return actual, actual
-    else:
+    if not (
+        last_applied := actual['metadata']
+        .get('annotations', {})
+        .get(LAST_APPLIED_CONFIG_ANNOTATION)
+    ):
         return actual, dict_merge(desired, annotate(desired))
+    # ensure that last_applied doesn't come back as a dict of unicode key/value pairs
+    # json.loads can be used if we stop supporting python 2
+    last_applied = json.loads(last_applied)
+    return (
+        (actual, patch)
+        if (
+            patch := merge(
+                dict_merge(last_applied, annotate(last_applied)),
+                dict_merge(desired, annotate(desired)),
+                actual,
+            )
+        )
+        else (actual, actual)
+    )
 
 
 def apply_object(resource, definition):
@@ -147,41 +149,42 @@ def list_to_dict(lst, key, position):
 # same patchMergeKey differ, we take the keys that are in last applied, compare the
 # actual and desired for those keys, and update if any differ
 def list_merge(last_applied, actual, desired, position):
-    result = list()
-    if position in STRATEGIC_MERGE_PATCH_KEYS and last_applied:
-        patch_merge_key = STRATEGIC_MERGE_PATCH_KEYS[position]
-        last_applied_dict = list_to_dict(last_applied, patch_merge_key, position)
-        actual_dict = list_to_dict(actual, patch_merge_key, position)
-        desired_dict = list_to_dict(desired, patch_merge_key, position)
-        for key in desired_dict:
-            if key not in actual_dict or key not in last_applied_dict:
-                result.append(desired_dict[key])
-            else:
-                patch = merge(last_applied_dict[key], desired_dict[key], actual_dict[key], position)
-                result.append(dict_merge(actual_dict[key], patch))
-        for key in actual_dict:
-            if key not in desired_dict and key not in last_applied_dict:
-                result.append(actual_dict[key])
-        return result
-    else:
+    if position not in STRATEGIC_MERGE_PATCH_KEYS or not last_applied:
         return desired
+    patch_merge_key = STRATEGIC_MERGE_PATCH_KEYS[position]
+    last_applied_dict = list_to_dict(last_applied, patch_merge_key, position)
+    actual_dict = list_to_dict(actual, patch_merge_key, position)
+    desired_dict = list_to_dict(desired, patch_merge_key, position)
+    result = []
+    for key in desired_dict:
+        if key not in actual_dict or key not in last_applied_dict:
+            result.append(desired_dict[key])
+        else:
+            patch = merge(last_applied_dict[key], desired_dict[key], actual_dict[key], position)
+            result.append(dict_merge(actual_dict[key], patch))
+    result.extend(
+        actual_dict[key]
+        for key in actual_dict
+        if key not in desired_dict and key not in last_applied_dict
+    )
+
+    return result
 
 
 def recursive_list_diff(list1, list2, position=None):
-    result = (list(), list())
     if position in STRATEGIC_MERGE_PATCH_KEYS:
         patch_merge_key = STRATEGIC_MERGE_PATCH_KEYS[position]
         dict1 = list_to_dict(list1, patch_merge_key, position)
         dict2 = list_to_dict(list2, patch_merge_key, position)
         dict1_keys = set(dict1.keys())
         dict2_keys = set(dict2.keys())
+        result = [], []
         for key in dict1_keys - dict2_keys:
             result[0].append(dict1[key])
         for key in dict2_keys - dict1_keys:
             result[1].append(dict2[key])
         for key in dict1_keys & dict2_keys:
-            diff = recursive_diff(dict1[key], dict2[key], position)
-            if diff:
+            if diff := recursive_diff(dict1[key], dict2[key], position):
                 # reinsert patch merge key to relate changes in other keys to
                 # a specific list element
                 diff[0].update({patch_merge_key: dict1[key][patch_merge_key]})
@@ -196,31 +199,31 @@ def recursive_list_diff(list1, list2, position=None):
 
 
 def recursive_diff(dict1, dict2, position=None):
-    if not position:
-        if 'kind' in dict1 and dict1.get('kind') == dict2.get('kind'):
-            position = dict1['kind']
-    left = dict((k, v) for (k, v) in dict1.items() if k not in dict2)
-    right = dict((k, v) for (k, v) in dict2.items() if k not in dict1)
+    if (
+        not position
+        and 'kind' in dict1
+        and dict1.get('kind') == dict2.get('kind')
+    ):
+        position = dict1['kind']
+    left = {k: v for (k, v) in dict1.items() if k not in dict2}
+    right = {k: v for (k, v) in dict2.items() if k not in dict1}
     for k in (set(dict1.keys()) & set(dict2.keys())):
         if position:
-            this_position = "%s.%s" % (position, k)
+            this_position = f"{position}.{k}"
         if isinstance(dict1[k], dict) and isinstance(dict2[k], dict):
-            result = recursive_diff(dict1[k], dict2[k], this_position)
-            if result:
+            if result := recursive_diff(dict1[k], dict2[k], this_position):
                 left[k] = result[0]
                 right[k] = result[1]
         elif isinstance(dict1[k], list) and isinstance(dict2[k], list):
-            result = recursive_list_diff(dict1[k], dict2[k], this_position)
-            if result:
+            if result := recursive_list_diff(
+                dict1[k], dict2[k], this_position
+            ):
                 left[k] = result[0]
                 right[k] = result[1]
         elif dict1[k] != dict2[k]:
             left[k] = dict1[k]
             right[k] = dict2[k]
-    if left or right:
-        return left, right
-    else:
-        return None
+    return (left, right) if left or right else None
 
 
 def get_deletions(last_applied, desired):
@@ -228,8 +231,7 @@ def get_deletions(last_applied, desired):
     for k, last_applied_value in last_applied.items():
         desired_value = desired.get(k)
         if isinstance(last_applied_value, dict) and isinstance(desired_value, dict):
-            p = get_deletions(last_applied_value, desired_value)
-            if p:
+            if p := get_deletions(last_applied_value, desired_value):
                 patch[k] = p
         elif last_applied_value != desired_value:
             patch[k] = desired_value
@@ -241,17 +243,25 @@ def get_delta(last_applied, actual, desired, position=None):
 
     for k, desired_value in desired.items():
         if position:
-            this_position = "%s.%s" % (position, k)
+            this_position = f"{position}.{k}"
         actual_value = actual.get(k)
         if actual_value is None:
             patch[k] = desired_value
         elif isinstance(desired_value, dict):
-            p = get_delta(last_applied.get(k, {}), actual_value, desired_value, this_position)
-            if p:
+            if p := get_delta(
+                last_applied.get(k, {}),
+                actual_value,
+                desired_value,
+                this_position,
+            ):
                 patch[k] = p
         elif isinstance(desired_value, list):
-            p = list_merge(last_applied.get(k, []), actual_value, desired_value, this_position)
-            if p:
+            if p := list_merge(
+                last_applied.get(k, []),
+                actual_value,
+                desired_value,
+                this_position,
+            ):
                 patch[k] = [item for item in p if item is not None]
         elif actual_value != desired_value:
             patch[k] = desired_value

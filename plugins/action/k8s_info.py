@@ -48,7 +48,7 @@ class ActionModule(ActionBase):
         try:
             tmp_source = self._loader.get_real_file(source)
         except AnsibleFileNotFound as e:
-            raise AnsibleActionFail("could not find template=%s, %s" % (source, to_text(e)))
+            raise AnsibleActionFail(f"could not find template={source}, {to_text(e)}")
         b_tmp_source = to_bytes(tmp_source, errors='surrogate_or_strict')
 
         try:
@@ -61,7 +61,7 @@ class ActionModule(ActionBase):
         except AnsibleAction:
             raise
         except Exception as e:
-            raise AnsibleActionFail("%s: %s" % (type(e).__name__, to_text(e)))
+            raise AnsibleActionFail(f"{type(e).__name__}: {to_text(e)}")
         finally:
             self._loader.cleanup_tmp_file(b_tmp_source)
 
@@ -91,22 +91,39 @@ class ActionModule(ActionBase):
                 if s_type in template_args:
                     value = ensure_type(template_args[s_type], 'string')
                     if value is not None and not isinstance(value, string_types):
-                        raise AnsibleActionFail("%s is expected to be a string, but got %s instead" % (s_type, type(value)))
+                        raise AnsibleActionFail(
+                            f"{s_type} is expected to be a string, but got {type(value)} instead"
+                        )
+
             try:
-                template_param.update({
-                    "trim_blocks": boolean(template_args.get('trim_blocks', True), strict=False),
-                    "lstrip_blocks": boolean(template_args.get('lstrip_blocks', False), strict=False)
-                })
+                template_param |= {
+                    "trim_blocks": boolean(
+                        template_args.get('trim_blocks', True), strict=False
+                    ),
+                    "lstrip_blocks": boolean(
+                        template_args.get('lstrip_blocks', False), strict=False
+                    ),
+                }
+
             except TypeError as e:
                 raise AnsibleActionFail(to_native(e))
 
-            template_param.update({
-                "newline_sequence": template_args.get('newline_sequence', self.DEFAULT_NEWLINE_SEQUENCE),
-                "variable_start_string": template_args.get('variable_start_string', None),
-                "variable_end_string": template_args.get('variable_end_string', None),
-                "block_start_string": template_args.get('block_start_string', None),
-                "block_end_string": template_args.get('block_end_string', None)
-            })
+            template_param |= {
+                "newline_sequence": template_args.get(
+                    'newline_sequence', self.DEFAULT_NEWLINE_SEQUENCE
+                ),
+                "variable_start_string": template_args.get(
+                    'variable_start_string', None
+                ),
+                "variable_end_string": template_args.get(
+                    'variable_end_string', None
+                ),
+                "block_start_string": template_args.get(
+                    'block_start_string', None
+                ),
+                "block_end_string": template_args.get('block_end_string', None),
+            }
+
         else:
             raise AnsibleActionFail("Error while reading template file - "
                                     "a string or dict for template expected, but got %s instead" % type(template))
@@ -131,11 +148,10 @@ class ActionModule(ActionBase):
             raise AnsibleActionFail("'template' is only a supported parameter for the 'k8s' module.")
 
         template_params = []
-        if isinstance(template, string_types) or isinstance(template, dict):
+        if isinstance(template, (string_types, dict)):
             template_params.append(self.get_template_args(template))
         elif isinstance(template, list):
-            for element in template:
-                template_params.append(self.get_template_args(element))
+            template_params.extend(self.get_template_args(element) for element in template)
         else:
             raise AnsibleActionFail("Error while reading template file - "
                                     "a string or dict for template expected, but got %s instead" % type(template))
@@ -148,11 +164,20 @@ class ActionModule(ActionBase):
         result_template = []
         old_vars = self._templar.available_variables
 
-        default_environment = {}
-        for key in ("newline_sequence", "variable_start_string", "variable_end_string",
-                    "block_start_string", "block_end_string", "trim_blocks", "lstrip_blocks"):
-            if hasattr(self._templar.environment, key):
-                default_environment[key] = getattr(self._templar.environment, key)
+        default_environment = {
+            key: getattr(self._templar.environment, key)
+            for key in (
+                "newline_sequence",
+                "variable_start_string",
+                "variable_end_string",
+                "block_start_string",
+                "block_end_string",
+                "trim_blocks",
+                "lstrip_blocks",
+            )
+            if hasattr(self._templar.environment, key)
+        }
+
         for template_item in template_params:
             # We need to convert unescaped sequences to proper escaped sequences for Jinja2
             newline_sequence = template_item['newline_sequence']
@@ -167,10 +192,10 @@ class ActionModule(ActionBase):
                 temp_vars = copy.deepcopy(task_vars)
                 for key, value in iteritems(template_item):
                     if hasattr(self._templar.environment, key):
-                        if value is not None:
-                            setattr(self._templar.environment, key, value)
-                        else:
+                        if value is None:
                             setattr(self._templar.environment, key, default_environment.get(key))
+                        else:
+                            setattr(self._templar.environment, key, value)
                 self._templar.available_variables = temp_vars
                 result = self._templar.do_template(template_data, preserve_trailing_newlines=True, escape_backslashes=False)
                 result_template.append(result)
@@ -192,12 +217,12 @@ class ActionModule(ActionBase):
             # find in expected paths
             return self._find_needle('files', local_path)
         except AnsibleError:
-            raise AnsibleActionFail("%s does not exist in local filesystem" % local_path)
+            raise AnsibleActionFail(f"{local_path} does not exist in local filesystem")
 
     def run(self, tmp=None, task_vars=None):
         ''' handler for k8s options '''
         if task_vars is None:
-            task_vars = dict()
+            task_vars = {}
 
         result = super(ActionModule, self).run(tmp, task_vars)
         del tmp  # tmp no longer has any effect
@@ -249,8 +274,7 @@ class ActionModule(ActionBase):
         if src:
             new_module_args['src'] = src
 
-        template = self._task.args.get('template', None)
-        if template:
+        if template := self._task.args.get('template', None):
             self.load_template(template, new_module_args, task_vars)
 
         local_path = self._task.args.get('local_path')
